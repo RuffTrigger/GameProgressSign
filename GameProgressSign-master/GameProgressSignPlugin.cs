@@ -73,9 +73,9 @@ namespace GameProgressSign
             bool secondSignExists = SignExistsAt(xSecond, y);
             bool thirdSignExists = SignExistsAt(xThird, y);
 
-            Console.Write("firstSignExists =" + firstSignExists + Environment.NewLine);
-            Console.Write("secondSignExists =" + secondSignExists + Environment.NewLine);
-            Console.Write("thirdSignExists =" + thirdSignExists + Environment.NewLine);
+            //Console.Write("firstSignExists =" + firstSignExists + Environment.NewLine);
+            //Console.Write("secondSignExists =" + secondSignExists + Environment.NewLine);
+            //Console.Write("thirdSignExists =" + thirdSignExists + Environment.NewLine);
 
             if (firstSignExists && secondSignExists && thirdSignExists)
             {
