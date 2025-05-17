@@ -2,8 +2,6 @@ using Terraria;
 using Terraria.ID;
 using TerrariaApi.Server;
 using TShockAPI;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace GameProgressSign
 {
@@ -41,7 +39,7 @@ namespace GameProgressSign
 
         private async void OnNpcKilled(NpcKilledEventArgs args)
         {
-            if (IsBoss(args.npc))
+            if (IsBoss(args.npc) || IsInvasionEnemy(args.npc))
             {
                 await UpdateSignsAsync("System");
             }
@@ -67,29 +65,40 @@ namespace GameProgressSign
         private async Task PlaceOrUpdateSpawnSignsAsync(string ownerName)
         {
             int y = Main.spawnTileY;
-            int xStart = Main.spawnTileX;
+            int xStart = Main.spawnTileX - 10;
             int xSecond = xStart + 5;
-
+            int xThird = xSecond + 5;
             // Check if signs already exist
             bool firstSignExists = SignExistsAt(xStart, y);
             bool secondSignExists = SignExistsAt(xSecond, y);
+            bool thirdSignExists = SignExistsAt(xThird, y);
 
-            if (firstSignExists && secondSignExists)
+            Console.Write("firstSignExists =" + firstSignExists + Environment.NewLine);
+            Console.Write("secondSignExists =" + secondSignExists + Environment.NewLine);
+            Console.Write("thirdSignExists =" + thirdSignExists + Environment.NewLine);
+
+            if (firstSignExists && secondSignExists && thirdSignExists)
             {
                 // Update text on existing signs without replacing
-                await UpdateExistingSignTextAsync(xStart, y, true);
-                await UpdateExistingSignTextAsync(xSecond, y, false);
+                await UpdateExistingSignTextAsync(xStart, y, true, false);
+                await UpdateExistingSignTextAsync(xSecond, y, false, false);
+                await UpdateExistingSignTextAsync(xThird, y, false, true);
                 return;
             }
+            else
+            {
+                // Only clear obstacles if signs do not already exist
+                await ClearObstaclesForSignsAsync(xStart, y, xThird);
+                await EnsureSolidSupportBlockAsync(xStart, y + 1);
+                await EnsureSolidSupportBlockAsync(xSecond, y + 1);
+                await EnsureSolidSupportBlockAsync(xThird, y + 1);
 
-            // Only clear obstacles if signs do not already exist
-            await ClearObstaclesForSignsAsync(xStart, y, xSecond);
-            await EnsureSolidSupportBlockAsync(xStart, y + 1);
-            await EnsureSolidSupportBlockAsync(xSecond, y + 1);
+                // Place new signs if they don't exist
+                await PlaceOrUpdateSingleSignAsync(ownerName, xStart, y, true, false);
+                await PlaceOrUpdateSingleSignAsync(ownerName, xSecond, y, false, false);
+                await PlaceOrUpdateSingleSignAsync(ownerName, xThird, y, false, true);
 
-            // Place new signs if they don't exist
-            await PlaceOrUpdateSingleSignAsync(ownerName, xStart, y, true);
-            await PlaceOrUpdateSingleSignAsync(ownerName, xSecond, y, false);
+            }
         }
 
         private bool SignExistsAt(int x, int y)
@@ -97,14 +106,21 @@ namespace GameProgressSign
             return Main.tile[x, y].active() && Main.tile[x, y].type == TileID.Signs;
         }
 
-        private async Task UpdateExistingSignTextAsync(int x, int y, bool isPreHardmode)
+        private async Task UpdateExistingSignTextAsync(int x, int y, bool isPreHardmode, bool isinvasion)
         {
             await Task.Run(() =>
             {
                 int signIndex = Sign.ReadSign(x, y, true);
                 if (signIndex >= 0 && Main.sign[signIndex] != null)
                 {
-                    Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
+                    if (isinvasion)
+                    {
+                        Main.sign[signIndex].text = GetInvasionText();
+                    }
+                    else
+                    {
+                        Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
+                    }
 
                     // Properly sync sign text to clients
                     NetMessage.SendData((int)PacketTypes.SignNew, -1, -1, null, signIndex);
@@ -114,7 +130,6 @@ namespace GameProgressSign
                 }
             });
         }
-
 
         private async Task ClearObstaclesForSignsAsync(int x1, int y, int x2)
         {
@@ -147,7 +162,7 @@ namespace GameProgressSign
             });
         }
 
-        private async Task PlaceOrUpdateSingleSignAsync(string ownerName, int x, int y, bool isPreHardmode)
+        private async Task PlaceOrUpdateSingleSignAsync(string ownerName, int x, int y, bool isPreHardmode, bool isinvasion)
         {
             await Task.Run(() =>
             {
@@ -160,7 +175,14 @@ namespace GameProgressSign
                     int signIndex = Sign.ReadSign(x, y, true);
                     if (signIndex >= 0 && Main.sign[signIndex] != null)
                     {
-                        Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
+                        if (isinvasion)
+                        {
+                            Main.sign[signIndex].text = GetInvasionText();
+                        }
+                        else
+                        {
+                            Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
+                        }
                         NetMessage.SendTileSquare(-1, x, y, 3, TileChangeType.None);
                     }
                 }
@@ -188,6 +210,21 @@ namespace GameProgressSign
                    npc.type == NPCID.DukeFishron ||
                    npc.type == NPCID.HallowBoss ||
                    npc.type == NPCID.Deerclops;
+        }
+        private bool IsInvasionEnemy(NPC npc)
+        {
+            return npc.type == NPCID.GoblinSorcerer || npc.type == NPCID.PirateCaptain || npc.type == NPCID.MartianSaucer || Main.invasionType > 0;
+        }
+
+        private string GetInvasionText()
+        {
+            return "Goblin Army: " + (NPC.downedGoblins ? "✔" : "✘") + "\n" +
+                   "Pirate Invasion: " + (NPC.downedPirates ? "✔" : "✘") + "\n" +
+                   "Martian Madness: " + (NPC.downedMartians ? "✔" : "✘") + "\n" +
+                   "Pumpkin Moon: " + ((NPC.downedHalloweenKing && NPC.downedHalloweenTree) ? "✔" : "✘") + "\n" +
+                   "Frost Moon: " + ((NPC.downedChristmasIceQueen && NPC.downedChristmasSantank && NPC.downedChristmasTree) ? "✔" : "✘") + "\n" +
+                   "Celestial Pillars: " + (NPC.TowersDefeated ? "✔" : "✘") + "\n" +
+                   "Frost Legion: " + (NPC.downedFrost ? "✔" : "✘");
         }
 
         private string GetPreHardmodeText()
