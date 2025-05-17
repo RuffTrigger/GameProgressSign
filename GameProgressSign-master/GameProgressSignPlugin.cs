@@ -1,4 +1,4 @@
-﻿using Terraria;
+using Terraria;
 using Terraria.ID;
 using TerrariaApi.Server;
 using TShockAPI;
@@ -21,7 +21,7 @@ namespace GameProgressSign
 
         public override void Initialize()
         {
-            Commands.ChatCommands.Add(new Command("GameProgressNPC.use", BossStatusCommand, "bossstatus"));
+            Commands.ChatCommands.Add(new Command("GameProgressSign.use", BossStatusCommand, "bossstatus"));
             ServerApi.Hooks.NpcKilled.Register(this, OnNpcKilled);
         }
 
@@ -105,10 +105,16 @@ namespace GameProgressSign
                 if (signIndex >= 0 && Main.sign[signIndex] != null)
                 {
                     Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
+
+                    // Properly sync sign text to clients
+                    NetMessage.SendData((int)PacketTypes.SignNew, -1, -1, null, signIndex);
+
+                    // Ensure tile data is also synced
                     NetMessage.SendTileSquare(-1, x, y, 3, TileChangeType.None);
                 }
             });
         }
+
 
         private async Task ClearObstaclesForSignsAsync(int x1, int y, int x2)
         {
@@ -197,8 +203,8 @@ namespace GameProgressSign
 
         private string GetHardmodeText()
         {
-            return "The Twins: " + (NPC.downedMechBoss1 ? "✔" : "✘") + "\n" +
-                   "The Destroyer: " + (NPC.downedMechBoss2 ? "✔" : "✘") + "\n" +
+            return "The Destroyer: " + (NPC.downedMechBoss1 ? "✔" : "✘") + "\n" +
+                   "The Twins: " + (NPC.downedMechBoss2 ? "✔" : "✘") + "\n" +
                    "Skeletron Prime: " + (NPC.downedMechBoss3 ? "✔" : "✘") + "\n" +
                    "Plantera: " + (NPC.downedPlantBoss ? "✔" : "✘") + "\n" +
                    "Golem: " + (NPC.downedGolemBoss ? "✔" : "✘") + "\n" +
