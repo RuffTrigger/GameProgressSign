@@ -1,7 +1,7 @@
 GameProgressSign is a TShock plugin for Terraria that provides a simple yet powerful feature: it automatically displays the boss progression status on two signs at the spawn location of your server world. This allows players to quickly see which bosses have been defeated without checking the game menus.
 
 🌟 Features:
-✅ Automatic Boss Tracking: The plugin tracks the defeat of pre-Hardmode and Hardmode bosses.
+✅ Automatic Boss Tracking: The plugin tracks the defeat of pre-Hardmode, Hardmode bosses and Invasions.
 
 ✅ Real-Time Updates: The signs are updated immediately after a boss is defeated or manually using the /bossstatus command.
 
