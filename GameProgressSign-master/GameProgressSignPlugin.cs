@@ -106,31 +106,6 @@ namespace GameProgressSign
             return Main.tile[x, y].active() && Main.tile[x, y].type == TileID.Signs;
         }
 
-        private async Task UpdateExistingSignTextAsync(int x, int y, bool isPreHardmode, bool isinvasion)
-        {
-            await Task.Run(() =>
-            {
-                int signIndex = Sign.ReadSign(x, y, true);
-                if (signIndex >= 0 && Main.sign[signIndex] != null)
-                {
-                    if (isinvasion)
-                    {
-                        Main.sign[signIndex].text = GetInvasionText();
-                    }
-                    else
-                    {
-                        Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
-                    }
-
-                    // Properly sync sign text to clients
-                    NetMessage.SendData((int)PacketTypes.SignNew, -1, -1, null, signIndex);
-
-                    // Ensure tile data is also synced
-                    NetMessage.SendTileSquare(-1, x, y, 3, TileChangeType.None);
-                }
-            });
-        }
-
         private async Task ClearObstaclesForSignsAsync(int x1, int y, int x2)
         {
             await Task.Run(() =>
@@ -161,7 +136,22 @@ namespace GameProgressSign
                 WorldGen.SquareTileFrame(x, y);
             });
         }
+        private async Task UpdateExistingSignTextAsync(int x, int y, bool isPreHardmode, bool isinvasion)
+        {
+            await Task.Run(() =>
+            {
+                int signIndex = Sign.ReadSign(x, y, true);
+                if (signIndex >= 0 && Main.sign[signIndex] != null)
+                {
+                    string newText = isinvasion ? GetInvasionText() : (isPreHardmode ? GetPreHardmodeText() : GetHardmodeText());
+                    if (Main.sign[signIndex].text == newText) return; // Skip update if text is identical
 
+                    Main.sign[signIndex].text = newText;
+                    NetMessage.SendData((int)PacketTypes.SignNew, -1, -1, null, signIndex);
+                    NetMessage.SendTileSquare(-1, x, y, 3, TileChangeType.None);
+                }
+            });
+        }
         private async Task PlaceOrUpdateSingleSignAsync(string ownerName, int x, int y, bool isPreHardmode, bool isinvasion)
         {
             await Task.Run(() =>
@@ -175,14 +165,11 @@ namespace GameProgressSign
                     int signIndex = Sign.ReadSign(x, y, true);
                     if (signIndex >= 0 && Main.sign[signIndex] != null)
                     {
-                        if (isinvasion)
-                        {
-                            Main.sign[signIndex].text = GetInvasionText();
-                        }
-                        else
-                        {
-                            Main.sign[signIndex].text = isPreHardmode ? GetPreHardmodeText() : GetHardmodeText();
-                        }
+                        string newText = isinvasion ? GetInvasionText() : (isPreHardmode ? GetPreHardmodeText() : GetHardmodeText());
+                        if (Main.sign[signIndex].text == newText) return; // Skip update if text is identical
+
+                        Main.sign[signIndex].text = newText;
+                        NetMessage.SendData((int)PacketTypes.SignNew, -1, -1, null, signIndex);
                         NetMessage.SendTileSquare(-1, x, y, 3, TileChangeType.None);
                     }
                 }
